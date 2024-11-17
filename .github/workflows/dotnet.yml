@@ -1,19 +1,19 @@
+#
+
 name: Azure Naming Tool - Build and deploy to an Azure Web App
+
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-env:
-  AZURE_WEBAPP_NAME: ''
-  AZURE_WEBAPP_PACKAGE_PATH: '.'
-  DOTNET_VERSION: '8.0.x'
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
   build:
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src
-    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Cache
@@ -25,33 +25,37 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-version: '8.0.x'
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore -c Release
     - name: Publish
-      run: dotnet publish --no-build --no-restore -c Release -o '${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/myapp'
+      run: dotnet publish --no-build --no-restore -c Release -o ./myapp
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
-        name: dotnet-myapp
-        path: '${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/myapp'
+        name: .net-app
+        path: ./myapp
+
   deploy:
     runs-on: ubuntu-latest
+    needs: [build]
     defaults:
       run:
         working-directory: ready/AzNamingTool
-    needs: [build]
+    permissions:
+      id-token: write
     steps:
       - name: Download
         uses: actions/download-artifact@v4
         with:
-          name: dotnet-myapp
+          name: .net-app
       - name: Deploy as WebApp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          app-name: app-aznamingtool-shd-usw-001
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: '${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/myapp'
-        
+          slot-name: production
+          package: ./myapp
+          
